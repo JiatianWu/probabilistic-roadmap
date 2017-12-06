@@ -938,7 +938,7 @@ static void plannerPRM(
   *planlength = 0;
 
   int maxLimit = 15;
-  double radius = 0.6;
+  double radius = 0.9;
   double V = 30000;
   double ecpilo = PI/20;
   prm* myPRM = new prm(V);
@@ -1017,7 +1017,7 @@ static void plannerPRMDTC(
   *plan = NULL;
   *planlength = 0;
 
-  double radius = 0.8;
+  double radius = 0.9;
   int V = 30000;
   double ecpilo = PI/20;
   int maxLimit = 15;
