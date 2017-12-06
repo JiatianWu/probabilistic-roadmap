@@ -49,13 +49,28 @@ void SaveAsTxt(const std::string &filename, const std::vector<Vector2<float>> po
 
     std::cout << "points and triangles saved!" << std::endl;
 
+}
 
+void SaveEdges(const std::string &filename, const std::vector<Edge<float>> edges)
+{
+	std::ofstream f;
+	f.open(filename.c_str());
+	f<< "Edges:" <<std::endl;
+	f<<edges.size()<<std::endl;
+	for(auto &e : edges)
+	{
+		f<<e.p1.x<<" "<<e.p1.y<<std::endl;
+		f<<e.p2.x<<" "<<e.p2.y<<std::endl;
+	}
+	f.close();
+	std::cout<<"Edges are saved!"<<std::endl;
 }
 
 int main()
 {
 	srand (time(NULL));
-	float numberPoints = roundf(RandomFloat(4, 40));
+	//float numberPoints = roundf(RandomFloat(4, 40));
+	float numberPoints = 300;
 
 	std::cout << "Generating " << numberPoints << " random points" << std::endl;
 
@@ -72,12 +87,12 @@ int main()
 	std::cout << " ========= ";
 	
 	std::cout << "\nPoints : " << points.size() << std::endl;
-	for(auto &p : points)
-		std::cout << p << std::endl;
+/*	for(auto &p : points)
+		std::cout << p << std::endl;*/
 	
 	std::cout << "\nTriangles : " << triangles.size() << std::endl;
-	for(auto &t : triangles)
-		std::cout << t << std::endl;
+/*	for(auto &t : triangles)
+		std::cout << t << std::endl;*/
 
 	std::cout << "\nEdges : " << edges.size() << std::endl;
 	for(auto &e : edges)
@@ -85,9 +100,12 @@ int main()
 
 	// Save points and triangles in txt;
 	SaveAsTxt("tmp.txt", points, triangles);
+
+	// Save edges for validation in txt;
+	SaveEdges("edges.txt", edges);
 			
 	// SFML window
-    	sf::RenderWindow window(sf::VideoMode(800, 600), "Delaunay triangulation");
+	sf::RenderWindow window(sf::VideoMode(800, 600), "Delaunay triangulation");
 
 	// Transform each points of each vector as a rectangle
 	std::vector<sf::RectangleShape*> squares;
