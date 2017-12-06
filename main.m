@@ -1,4 +1,4 @@
-function[] = main(map)
+function[] = main(mode)
 
 angles = [pi/2 pi/4 pi/2 pi/4 pi/2;
           pi/8 3*pi/4 pi 0.9*pi 1.5*pi;
@@ -6,7 +6,7 @@ angles = [pi/2 pi/4 pi/2 pi/4 pi/2;
           pi/3 pi/3 0.9*pi pi/2 pi/2];
  startQ = angles(1,:);  
  goalQ = angles(2,:);
- runtest('map1.txt', startQ, goalQ, 3)
+ runtest2('map1.txt', startQ, goalQ, mode)
       
 % pathSum = 0;
 % timeSum = 0;
