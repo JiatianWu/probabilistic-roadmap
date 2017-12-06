@@ -10,12 +10,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 #include <vector>
 #include <list>
 #include <set>
 #include <queue>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
+#include <chrono>
 
 /* Input Arguments */
 #define	MAP_IN      prhs[0]
@@ -24,10 +27,8 @@
 #define	PLANNER_ID_IN     prhs[3]
 
 /* Planner Ids */
-#define RRT         0
-#define RRTCONNECT  1
-#define RRTSTAR     2
-#define PRM         3
+#define PRM         0
+#define PRMDTC      1
 
 /* Output Arguments */
 #define	PLAN_OUT	plhs[0]
@@ -466,11 +467,13 @@ public:
   // check if two prmNode is connected 
   bool checkConnected(int u, int v){
     bool *visited = new bool[V];
+    printf("break point 0\n");
 
     for(int i = 0; i < V; i++)
       visited[i] = false;
 
-    DFSUtil(u, visited);
+    int counter = 0;
+    DFSUtil(u, visited, counter);
 
     if(visited[v]){
       delete [] visited;
@@ -484,28 +487,139 @@ public:
   };
 
   // Do Depth First Search in the graph 
-  void DFSUtil(int u, bool visited[]){
+  void DFSUtil(int u, bool visited[], int counter){
+    printf("before ");
     if(u > (V - 1) || u < 0)
-        cout << " big error ! " << endl; 
+      printf("big error\n");
+    printf(" %d\n", visited[u]);
     visited[u] = true;
-    // printf(" u %d\n",  u);
+    counter++;
+    printf("counter %d u %d \n", counter, u);
+
+    list< pair<prmNode*, double> >::iterator iter0;
+    for(iter0 = graph[u].begin(); iter0 != graph[u].end(); iter0++){
+      printf(" %d  %d ", (*iter0).first->index, visited[(*iter0).first->index]);
+    }
+    printf("\n");
 
     list< pair<prmNode*, double> >::iterator iter;
     for(iter = graph[u].begin(); iter != graph[u].end(); iter++){
-      if(!visited[(*iter).first->index])
-        DFSUtil((*iter).first->index, visited);
+      if(!visited[(*iter).first->index]){
+        printf(" dfs %d %d\n", (*iter).first->index, visited[(*iter).first->index]);
+        DFSUtil((*iter).first->index, visited, counter);
+      }
+    }
+
+    return;
+
+  };
+
+  int computeComponent(){
+
+    vector<bool> visited(V, false);
+    
+    int counter = 0;
+    for(int i = 0; i < V; i++){
+      if(!visited[i]){
+        DFSUtil_backup(i, visited);
+        counter++;
+      }
+    }
+
+    return counter;
+  }
+
+    // check if two prmNode is connected 
+  bool checkConnected_backup(int u, int v){
+
+    vector<bool> visited(V, false);
+
+    DFSUtil_backup(u, visited);
+
+    if(visited[v]){
+      return true;
+    }
+    else{
+      return false;
     }
 
   };
 
-  // Construct probabilistic roadmap 
-  void process(double radius){
+  // Do Depth First Search in the graph 
+  void DFSUtil_backup(int u, vector<bool> &visited){
 
+    visited[u] = true;
+
+    list< pair<prmNode*, double> >::iterator iter;
+    for(iter = graph[u].begin(); iter != graph[u].end(); iter++){
+      if(!visited[(*iter).first->index]){
+        DFSUtil_backup((*iter).first->index, visited);
+      }
+    }
+
+    return;
+
+  };
+
+  bool checkValid(int u, int v, double ecpilo, double* map, int x_size, int y_size){
+    prmNode* start = graph[u].front().first;
+    prmNode* goal = graph[v].front().first;
+    double dist_temp = dist(start, goal);
+    bool result = true;
+
+    double lamda = ecpilo/dist_temp;
+    double base = lamda;
+
+    while(lamda < 1){
+      double *node_new = new double[5];
+      for(int i = 0; i < DOF; i++){
+          node_new[i] = lamda*goal->x[i] + (1-lamda)*start->x[i];
+      }
+      if(!IsValidArmConfiguration(node_new, DOF, map, x_size, y_size)){
+        result = false;
+        delete[] node_new;
+        return result;
+      }
+
+      delete[] node_new;
+      lamda = lamda + base;
+    }
+
+    return result;
+  }
+
+vector<int> generateInteger(int size, int max){
+    set<int> s;
+    vector<int> result;
+    int number;
+
+    while(1){
+      int r = rand()%size;
+      number = s.count(r);
+      if(number == 0){
+        s.insert(r);
+        result.push_back(r);
+      }
+      if(result.size() == max){
+        return result;
+        break;
+      }
+    }
+};
+
+  // Construct probabilistic roadmap 
+  void process(double radius, int maxLimit, double ecpilo, double *map, int x_size, int y_size){
+
+    chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
     root = make_tree(kdTree, (V-2), 0, DOF);
-    
+    chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
+    double kdtree_time = std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+    cout << " make kdtree time " << kdtree_time << endl;
+
+    bool debugPrint = true;   
     for(int number = 0; number < (V-2); number++){
 
-      if(number%1000 == 0)
+      if(number%3000 == 0 && debugPrint)
         cout << "iteration " << number << " times " << endl;
 
       struct kd_node_t *node = new kd_node_t;
@@ -529,11 +643,13 @@ public:
         }
 
         std::sort(nearVertice.begin(), nearVertice.end(), comp);
-        for(int i = 0; i < nearVertice.size(); i++){
-            // bool result = checkConnected(nearVertice[i].first->index, number);
-            // if(!result){
-            // addEdge(nearVertice[i].first, graph[number].front().first, nearVertice[i].second);
-            // }
+        int neighborSize;
+        if(neighbor.size() <= maxLimit)
+          neighborSize = nearVertice.size();
+        else
+          neighborSize = maxLimit;
+
+        for(int i = 0; i < neighborSize; i++){
           bool alreadyIn = false;
           list<pair<prmNode*, double>>::iterator iter;
           for(iter = graph[number].begin(); iter != graph[number].end(); iter++){
@@ -541,9 +657,90 @@ public:
               alreadyIn = true;
           }
 
-          if(!alreadyIn)
-              addEdge(nearVertice[i].first, graph[number].front().first, nearVertice[i].second);  
+          if(!alreadyIn){
+            bool valid = checkValid(number, nearVertice[i].first->index, ecpilo, map, x_size, y_size);
+            if(valid)
+              addEdge(nearVertice[i].first, graph[number].front().first, nearVertice[i].second); 
+          }
         }  
+      }
+    }
+    
+    return;
+
+  };
+
+  // Process Delaunay Triangulation Node Connection Strategy
+  void processDTC(double radius, int maxLimit, double ecpilo, double *map, int x_size, int y_size){
+
+    chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
+    root = make_tree(kdTree, (V-2), 0, DOF);
+    chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
+    double kdtree_time = std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+    cout << " make kdtree time " << kdtree_time << endl;
+
+    bool debugPrint = true;   
+    for(int number = 0; number < (V-2); number++){
+
+      if(number%3000 == 0 && debugPrint)
+        cout << "iteration " << number << " times " << endl;
+
+      struct kd_node_t *node = new kd_node_t;
+      node->index = number;
+      initialNode(node, &(graph[number].front().first->x[0]));      
+      
+      // find neighbors in the radius
+      vector<struct kd_node_t *> neighbor;
+      near(root, node, 0, DOF, neighbor, radius);
+      delete node;
+
+      // connect to neighbors 
+      if(neighbor.size() > 1){
+        vector<pair<prmNode*, double> > nearVertice;
+        vector<struct kd_node_t *>::iterator iter;
+        for(iter = neighbor.begin(); iter != neighbor.end(); iter++){
+          if((*iter)->index != number){
+            double dist_temp = dist(graph[(*iter)->index].front().first, graph[number].front().first);
+            nearVertice.push_back(make_pair(graph[(*iter)->index].front().first, dist_temp));
+          }
+        }
+
+        if(nearVertice.size() <= maxLimit){
+          for(int i = 0; i < nearVertice.size(); i++){
+            bool alreadyIn = false;
+            list<pair<prmNode*, double>>::iterator iter;
+            for(iter = graph[number].begin(); iter != graph[number].end(); iter++){
+              if(nearVertice[i].first->index == (*iter).first->index)
+                 alreadyIn = true;
+            }
+
+            if(!alreadyIn){
+              bool valid = checkValid(number, nearVertice[i].first->index, ecpilo, map, x_size, y_size);
+              if(valid)
+                addEdge(nearVertice[i].first, graph[number].front().first, nearVertice[i].second); 
+            }
+          }
+        }else{
+          vector<int> random = generateInteger(nearVertice.size(), maxLimit);
+          for(int i = 0; i < maxLimit; i++){
+            int index_v = random[i];
+
+            bool alreadyIn = false;
+            list<pair<prmNode*, double>>::iterator iter;
+            for(iter = graph[number].begin(); iter != graph[number].end(); iter++){
+              if(nearVertice[index_v].first->index == (*iter).first->index)
+                 alreadyIn = true;
+            }
+            
+            if(!alreadyIn){
+              bool valid = checkValid(number, nearVertice[index_v].first->index, ecpilo, map, x_size, y_size);
+              if(valid)
+                addEdge(nearVertice[index_v].first, graph[number].front().first, nearVertice[index_v].second); 
+            }
+
+          }
+        }
+
       }
     }
     
@@ -575,7 +772,7 @@ public:
       near(root, node, 0, DOF, neighbor, radius);
 
       if(neighbor.size() > 1){
-        cout << " find neighrbor in radius yeah ~" << endl;
+        cout << " find neighrbor in radius " << endl;
         vector<pair<prmNode*, double> > nearVertice;
         vector<struct kd_node_t *>::iterator iter;
         for(iter = neighbor.begin(); iter != neighbor.end(); iter++){
@@ -587,12 +784,7 @@ public:
 
         std::sort(nearVertice.begin(), nearVertice.end(), comp);
         for(int i = 0; i < nearVertice.size(); i++){
-          // cout << "first neighbor " << nearVertice[i].first->index << endl;
-          //   bool result = checkConnected(nearVertice[i].first->index, node->index);
-          //   cout << " result " << endl;
-            // if(!result){
-              addEdge(nearVertice[i].first, graph[node->index].front().first, nearVertice[i].second);
-            // }
+          addEdge(nearVertice[i].first, graph[node->index].front().first, nearVertice[i].second);
         }    
       }
       else{
@@ -635,13 +827,18 @@ public:
   // Return the best path from start to goal if connected, 
   // if start and goal is not connected, show failure and return no path
   void findBestPath(prmNode* node_start, prmNode* node_goal, double*** plan, int* planlength){
-    bool result = checkConnected(node_start->index, node_goal->index);
+
+    int numComponent = computeComponent();
+    // cout << " numComponent " << numComponent << endl;
+
+    bool result = checkConnected_backup(node_start->index, node_goal->index);
+    // bool result = true;
 
     if(result){
 
       cout << " success " << endl;
 
-      double weight = 3;
+      double weight = 2;
       double *cost = new double[V];
       bool *visit = new bool[V];   
       for(int i = 0; i < V; i++)
@@ -740,8 +937,10 @@ static void plannerPRM(
   *plan = NULL;
   *planlength = 0;
 
-  double radius = PI/10;
-  double V = 400000;
+  int maxLimit = 15;
+  double radius = 0.6;
+  double V = 30000;
+  double ecpilo = PI/20;
   prm* myPRM = new prm(V);
 
   int counter = 0;
@@ -782,8 +981,18 @@ static void plannerPRM(
   kdNode_goal->index = node_goal->index;
   initialNode(kdNode_goal, armgoal_anglesV_rad);
 
-  myPRM->process(radius);
+  myPRM->process(radius, maxLimit, ecpilo, map, x_size, y_size);
   cout << " finish process " << endl;
+
+  int edges = 0;
+  vector<int> result;
+  for(int i = 0; i < V-2; i++){
+    edges += (myPRM->graph[i].size() - 1);
+    result.push_back(myPRM->graph[i].size() - 1);
+  }
+
+  // sort(result.begin(), result.end());
+  // cout << " edges " << edges << " median " << result[V/2 -1] << endl;
 
   myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius);
   cout << " finish add goal and start " << endl;
@@ -791,6 +1000,104 @@ static void plannerPRM(
 
   return; 
 }
+
+//==================================================Delaunay Triangulation PRM============================================= 
+static void plannerPRMDTC(
+       double*  map,
+       int x_size,
+       int y_size,
+           double* armstart_anglesV_rad,
+           double* armgoal_anglesV_rad,
+     int numofDOFs,
+     double*** plan,
+     int* planlength)
+{
+  //no plan by default
+  *plan = NULL;
+  *planlength = 0;
+
+  double radius = 0.7;
+  int V = 30000;
+  double ecpilo = PI/20;
+  int maxLimit = 15;
+  prm* myPRM = new prm(V);
+
+  int counter = 0;
+  while(counter < (V-2)){
+
+    double node_rand[5] = { 2*PI*(rand()/double(RAND_MAX)), \
+                            2*PI*(rand()/double(RAND_MAX)), \
+                            2*PI*(rand()/double(RAND_MAX)), \
+                            2*PI*(rand()/double(RAND_MAX)), \
+                            2*PI*(rand()/double(RAND_MAX))};   
+
+    if(IsValidArmConfiguration(&node_rand[0], DOF, map, x_size, y_size)){
+        struct prmNode *node_new = new prmNode;
+        initialPrmNode(node_new, &node_rand[0]);
+        node_new->index = counter;
+        myPRM->addVertice(node_new);
+
+        struct kd_node_t *kdNode_new = new kd_node_t;
+        kdNode_new->index = node_new->index;
+        initialNode(kdNode_new, &node_rand[0]);
+        myPRM->addKdNode(kdNode_new);
+  
+        counter++;
+    }
+  }
+
+  struct prmNode *node_start = new prmNode; 
+  initialPrmNode(node_start, armstart_anglesV_rad);
+  node_start->index = myPRM->graph.size();
+  struct kd_node_t *kdNode_start = new kd_node_t;
+  kdNode_start->index = node_start->index;
+  initialNode(kdNode_start, armstart_anglesV_rad);
+
+  struct prmNode *node_goal = new prmNode; 
+  initialPrmNode(node_goal, armgoal_anglesV_rad);
+  node_goal->index = myPRM->graph.size() + 1;
+  struct kd_node_t *kdNode_goal = new kd_node_t;
+  kdNode_goal->index = node_goal->index;
+  initialNode(kdNode_goal, armgoal_anglesV_rad);
+
+  myPRM->processDTC(radius, maxLimit, ecpilo, map, x_size, y_size);
+  cout << " finish process " << endl;
+
+  int number = 0;
+  vector<int> result;
+  for(int i = 0; i < V-2; i++){
+    number += myPRM->graph[i].size() - 1;
+    result.push_back(myPRM->graph[i].size() - 1);
+  }
+  
+  sort(result.begin(), result.end());
+  cout << "neighbor " << number << " median " << result[V/2 - 1]<< endl;
+
+  myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius);
+  cout << " finish add goal and start " << endl;
+  myPRM->findBestPath(node_start, node_goal, plan, planlength);
+
+  return; 
+};
+
+vector<int> generateInteger_backup(int size, int max){
+    set<int> s;
+    vector<int> result;
+    int number;
+
+    while(1){
+      int r = rand()%size;
+      number = s.count(r);
+      if(number == 0){
+        s.insert(r);
+        result.push_back(r);
+      }
+      if(result.size() == max){
+        return result;
+        break;
+      }
+    }
+};
 
 static void test(
        double*  map,
@@ -825,9 +1132,15 @@ static void test(
     for(int i = 0; i < neighbor.size(); i++)
       cout << neighbor[i]->index << "  " << neighbor[i]->x[0] << "  " << neighbor[i]->x[1] << endl;
 
+    // srand(time(NULL));
+    vector<int> result;
+    result = generateInteger_backup(50, 15);
+    for(int i = 0; i < result.size(); i++)
+      cout << result[i] << endl;
+
     return;
 
-}
+};
 
 //prhs contains input parameters (3): 
 //1st is matrix with all the obstacles
@@ -882,7 +1195,17 @@ void mexFunction( int nlhs, mxArray *plhs[],
     
     //you can may be call the corresponding planner function here
 
-    plannerPRM(map,x_size,y_size, armstart_anglesV_rad, armgoal_anglesV_rad, numofDOFs, &plan, &planlength);
+    if (planner_id == PRM)
+    {
+       plannerPRM(map,x_size,y_size, armstart_anglesV_rad, armgoal_anglesV_rad, numofDOFs, &plan, &planlength);
+    }
+
+    if (planner_id == PRMDTC)
+    {
+       plannerPRMDTC(map,x_size,y_size, armstart_anglesV_rad, armgoal_anglesV_rad, numofDOFs, &plan, &planlength);
+    }
+
+    // test(map,x_size,y_size, armstart_anglesV_rad, armgoal_anglesV_rad, numofDOFs, &plan, &planlength);
 
     printf("planner returned plan of length=%d\n", planlength); 
     
