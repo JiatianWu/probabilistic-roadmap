@@ -570,15 +570,13 @@ public:
     double lamda = ecpilo/dist_temp;
     double base = lamda;
 
-    while(lamda < 1){
+    while(result && lamda < 1 ){
       double *node_new = new double[5];
       for(int i = 0; i < DOF; i++){
           node_new[i] = lamda*goal->x[i] + (1-lamda)*start->x[i];
       }
       if(!IsValidArmConfiguration(node_new, DOF, map, x_size, y_size)){
         result = false;
-        delete[] node_new;
-        return result;
       }
 
       delete[] node_new;
@@ -586,7 +584,7 @@ public:
     }
 
     return result;
-  }
+  };
 
 vector<int> generateInteger(int size, int max){
     set<int> s;
@@ -749,7 +747,7 @@ vector<int> generateInteger(int size, int max){
   };
 
   // ADD startNode and goalNode to the graph 
-  void addStartGoal(prmNode* node_start, kd_node_t* kdNode_start, prmNode* node_goal, kd_node_t* kdNode_goal, double radius){
+  void addStartGoal(prmNode* node_start, kd_node_t* kdNode_start, prmNode* node_goal, kd_node_t* kdNode_goal, double radius, double ecpilo, double *map, int x_size, int y_size){
     
     assert(node_start->index == graph.size());
     addVertice(node_start);
@@ -784,7 +782,9 @@ vector<int> generateInteger(int size, int max){
 
         std::sort(nearVertice.begin(), nearVertice.end(), comp);
         for(int i = 0; i < nearVertice.size(); i++){
-          addEdge(nearVertice[i].first, graph[node->index].front().first, nearVertice[i].second);
+          bool valid = checkValid(node->index, nearVertice[i].first->index, ecpilo, map, x_size, y_size);
+          if(valid)
+            addEdge(nearVertice[i].first, graph[node->index].front().first, nearVertice[i].second);
         }    
       }
       else{
@@ -829,7 +829,7 @@ vector<int> generateInteger(int size, int max){
   void findBestPath(prmNode* node_start, prmNode* node_goal, double*** plan, int* planlength){
 
     int numComponent = computeComponent();
-    // cout << " numComponent " << numComponent << endl;
+    cout << " numComponent " << numComponent << endl;
 
     bool result = checkConnected_backup(node_start->index, node_goal->index);
     // bool result = true;
@@ -991,11 +991,12 @@ static void plannerPRM(
     result.push_back(myPRM->graph[i].size() - 1);
   }
 
-  // sort(result.begin(), result.end());
-  // cout << " edges " << edges << " median " << result[V/2 -1] << endl;
+  sort(result.begin(), result.end());
+  cout << " edges " << edges << " median " << result[V/2 -1] << endl;
 
-  myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius);
+  myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius, ecpilo, map, x_size, y_size);
   cout << " finish add goal and start " << endl;
+  cout << " edges " << edges << " median " << result[V/2 -1] << endl;
   myPRM->findBestPath(node_start, node_goal, plan, planlength);
 
   return; 
@@ -1016,7 +1017,7 @@ static void plannerPRMDTC(
   *plan = NULL;
   *planlength = 0;
 
-  double radius = 0.7;
+  double radius = 0.8;
   int V = 30000;
   double ecpilo = PI/20;
   int maxLimit = 15;
@@ -1073,7 +1074,7 @@ static void plannerPRMDTC(
   sort(result.begin(), result.end());
   cout << "neighbor " << number << " median " << result[V/2 - 1]<< endl;
 
-  myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius);
+  myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius, ecpilo, map, x_size, y_size);
   cout << " finish add goal and start " << endl;
   myPRM->findBestPath(node_start, node_goal, plan, planlength);
 
