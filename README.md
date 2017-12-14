@@ -1,7 +1,7 @@
 This project is developed by Jiatian Wu (jiatian1) and Jucheng Zhang (jucheng1). 
 
 1. How to Run
-First run " mex planner " in Matlab to compile. To run Delaunay Neighborhood Connection based Probabilistic Roadmap, run " mode(1) ". To run original Nearest Neighborhood Connection based PRM, run " mode(0)".
+First run " mex planner " in Matlab to compile. To run Delaunay Neighborhood Connection based Probabilistic Roadmap, run " main(1) ". To run original Nearest Neighborhood Connection based PRM, run " main(0)".
 
 Current arm configuration is same as hw2. Default start is [pi/2 pi/4 pi/2 pi/4 pi/2], default goal is [pi/8 3*pi/4 pi 0.9*pi 1.5*pi], default map is map1.txt.
 
