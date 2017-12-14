@@ -618,7 +618,7 @@ vector<int> generateInteger(int size, int max){
     for(int number = 0; number < (V-2); number++){
 
       if(number%3000 == 0 && debugPrint)
-        cout << "iteration " << number << " times " << endl;
+        cout << "processing " << number << " rounds " << endl;
 
       struct kd_node_t *node = new kd_node_t;
       node->index = number;
@@ -681,7 +681,7 @@ vector<int> generateInteger(int size, int max){
     for(int number = 0; number < (V-2); number++){
 
       if(number%3000 == 0 && debugPrint)
-        cout << "iteration " << number << " times " << endl;
+        cout << "processing " << number << " rounds " << endl;
 
       struct kd_node_t *node = new kd_node_t;
       node->index = number;
@@ -770,7 +770,7 @@ vector<int> generateInteger(int size, int max){
       near(root, node, 0, DOF, neighbor, radius);
 
       if(neighbor.size() > 1){
-        cout << " find neighrbor in radius " << endl;
+        // cout << " find neighrbor in radius " << endl;
         vector<pair<prmNode*, double> > nearVertice;
         vector<struct kd_node_t *>::iterator iter;
         for(iter = neighbor.begin(); iter != neighbor.end(); iter++){
@@ -829,15 +829,12 @@ vector<int> generateInteger(int size, int max){
   void findBestPath(prmNode* node_start, prmNode* node_goal, double*** plan, int* planlength){
 
     int numComponent = computeComponent();
-    cout << " numComponent " << numComponent << endl;
+    cout << " The generated roadmap has " << numComponent << " components."<< endl;
 
     bool result = checkConnected_backup(node_start->index, node_goal->index);
     // bool result = true;
 
     if(result){
-
-      cout << " success " << endl;
-
       double weight = 2;
       double *cost = new double[V];
       bool *visit = new bool[V];   
@@ -937,10 +934,11 @@ static void plannerPRM(
   *plan = NULL;
   *planlength = 0;
 
-  int maxLimit = 15;
-  double radius = 0.9;
-  double V = 30000;
+
+  double radius = 0.8;  // neighborhood radius size
+  double V = 30000;  // sampling points number
   double ecpilo = PI/20;
+  int maxLimit = 15;
   prm* myPRM = new prm(V);
 
   int counter = 0;
@@ -982,7 +980,6 @@ static void plannerPRM(
   initialNode(kdNode_goal, armgoal_anglesV_rad);
 
   myPRM->process(radius, maxLimit, ecpilo, map, x_size, y_size);
-  cout << " finish process " << endl;
 
   int edges = 0;
   vector<int> result;
@@ -992,11 +989,9 @@ static void plannerPRM(
   }
 
   sort(result.begin(), result.end());
-  cout << " edges " << edges << " median " << result[V/2 -1] << endl;
+  cout << " The NNC based PRM generated " << edges  << " edges, "<< " the average neighbors per node is " << result[V/2 -1] << endl;
 
   myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius, ecpilo, map, x_size, y_size);
-  cout << " finish add goal and start " << endl;
-  cout << " edges " << edges << " median " << result[V/2 -1] << endl;
   myPRM->findBestPath(node_start, node_goal, plan, planlength);
 
   return; 
@@ -1017,8 +1012,8 @@ static void plannerPRMDTC(
   *plan = NULL;
   *planlength = 0;
 
-  double radius = 0.9;
-  int V = 30000;
+  double radius = 0.8;  // neighborhood radius size
+  int V = 30000;  // sampling points number
   double ecpilo = PI/20;
   int maxLimit = 15;
   prm* myPRM = new prm(V);
@@ -1062,7 +1057,6 @@ static void plannerPRMDTC(
   initialNode(kdNode_goal, armgoal_anglesV_rad);
 
   myPRM->processDTC(radius, maxLimit, ecpilo, map, x_size, y_size);
-  cout << " finish process " << endl;
 
   int number = 0;
   vector<int> result;
@@ -1072,10 +1066,9 @@ static void plannerPRMDTC(
   }
   
   sort(result.begin(), result.end());
-  cout << "neighbor " << number << " median " << result[V/2 - 1]<< endl;
+  cout << " The DTC based PRM generated " << number  << " edges, "<< " the average neighbors per node is " << result[V/2 -1] << endl;
 
   myPRM->addStartGoal(node_start, kdNode_start, node_goal, kdNode_goal, radius, ecpilo, map, x_size, y_size);
-  cout << " finish add goal and start " << endl;
   myPRM->findBestPath(node_start, node_goal, plan, planlength);
 
   return; 
